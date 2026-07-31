@@ -257,14 +257,14 @@ def embed_hooks(hook: dict) -> dict:
         f"Unix:\n[Carbon.Hooks.Community.dll]({dl_url})\n[Carbon.Hooks.Oxide.dll]({dl_url})"
     )
 
-    # Выводим их друг под другом, чтобы в Lolka хватало ширины текста и он не переносился
+    # Возвращаем 2 колонки как в оригинале
     download_fields = [
-        {"name": "Download Debug",   "value": one_col, "inline": False},
-        {"name": "Download Release", "value": one_col, "inline": False},
+        {"name": "Download Debug",   "value": one_col, "inline": True},
+        {"name": "Download Release", "value": one_col, "inline": True},
     ]
 
     return {
-        "title":       "Hook Update",
+        "title":       "Hook Update" + "\u2800" * 30,
         "color":       0x76B82A,
         "description": "**New protocol hook update available!**\nRestart the server with the same protocol to update.",
         "fields": [
