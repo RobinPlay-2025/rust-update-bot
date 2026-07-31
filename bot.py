@@ -250,11 +250,14 @@ def embed_hooks(hook: dict) -> dict:
     # Oxide Hooks URL
     oxide_url = f"https://api.carbonmod.gg/oxide/{hook['branch']}.opj"
 
-    # Ссылки на скачивание
+    # Ссылки на скачивание с невидимыми пробелами \u200b для красивого переноса строк на узких экранах
     dl_url = hook["url"]
+    comm_dll = "Carbon.\u200bHooks.\u200bCommunity.\u200bdll"
+    ox_dll   = "Carbon.\u200bHooks.\u200bOxide.\u200bdll"
+    
     one_col = (
-        f"Windows:\n[Carbon.Hooks.Community.dll]({dl_url})\n[Carbon.Hooks.Oxide.dll]({dl_url})\n"
-        f"Unix:\n[Carbon.Hooks.Community.dll]({dl_url})\n[Carbon.Hooks.Oxide.dll]({dl_url})"
+        f"Windows:\n[{comm_dll}]({dl_url})\n[{ox_dll}]({dl_url})\n"
+        f"Unix:\n[{comm_dll}]({dl_url})\n[{ox_dll}]({dl_url})"
     )
 
     # Возвращаем 2 колонки как в оригинале
@@ -264,7 +267,7 @@ def embed_hooks(hook: dict) -> dict:
     ]
 
     return {
-        "title":       "Hook Update" + "\u2800" * 30,
+        "title":       "Hook Update",
         "color":       0x76B82A,
         "description": "**New protocol hook update available!**\nRestart the server with the same protocol to update.",
         "fields": [
