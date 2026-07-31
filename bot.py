@@ -255,22 +255,32 @@ def embed_hooks(hook: dict) -> dict:
     # Oxide Hooks URL
     oxide_url = f"https://api.carbonmod.gg/oxide/{hook['branch']}.opj"
 
-    # Ссылки на скачивание (без каких-либо скрытых пробелов)
-    dl_url = hook["url"]
+    # Ссылки на прямое скачивание .dll файлов
     comm_dll = "Carbon.Hooks.Community.dll"
     ox_dll   = "Carbon.Hooks.Oxide.dll"
+    prot     = hook["protocol"]
     
-    one_col = (
-        f"Windows:\n[{comm_dll}]({dl_url})\n[{ox_dll}]({dl_url})\n"
-        f"Unix:\n[{comm_dll}]({dl_url})\n[{ox_dll}]({dl_url})"
+    base_win_debug = f"https://cdn.carbonmod.gg/hooks/server/debug/{prot}/carbon/managed/hooks"
+    base_unx_debug = f"https://cdn.carbonmod.gg/hooks/server/debugunix/{prot}/carbon/managed/hooks"
+    base_win_rel   = f"https://cdn.carbonmod.gg/hooks/server/release/{prot}/carbon/managed/hooks"
+    base_unx_rel   = f"https://cdn.carbonmod.gg/hooks/server/releaseunix/{prot}/carbon/managed/hooks"
+    
+    col_debug = (
+        f"Windows:\n[{comm_dll}]({base_win_debug}/{comm_dll})\n[{ox_dll}]({base_win_debug}/{ox_dll})\n"
+        f"Unix:\n[{comm_dll}]({base_unx_debug}/{comm_dll})\n[{ox_dll}]({base_unx_debug}/{ox_dll})"
+    )
+    
+    col_rel = (
+        f"Windows:\n[{comm_dll}]({base_win_rel}/{comm_dll})\n[{ox_dll}]({base_win_rel}/{ox_dll})\n"
+        f"Unix:\n[{comm_dll}]({base_unx_rel}/{comm_dll})\n[{ox_dll}]({base_unx_rel}/{ox_dll})"
     )
 
     # Располагаем блоки скачивания друг под другом (inline=False), 
     # чтобы они занимали всю ширину и текст 100% не переносился.
     # Добавляем разделительную полосу после первого блока.
     download_fields = [
-        {"name": "Скачать (Debug)",   "value": one_col + "\n━━━━━━━━━━━━━━━━━━━", "inline": False},
-        {"name": "Скачать (Release)", "value": one_col, "inline": False},
+        {"name": "Скачать (Debug)",   "value": col_debug + "\n━━━━━━━━━━━━━━━━━━━", "inline": False},
+        {"name": "Скачать (Release)", "value": col_rel, "inline": False},
     ]
 
     return {
