@@ -278,9 +278,9 @@ def embed_hooks(hook: dict) -> dict:
              "value": f"[Rust.opj]({oxide_url})",
              "inline": False},
             *download_fields,
+            {"name": "\u200b", "value": "\u00A0" * 65, "inline": False}, # Force width
         ],
         "thumbnail":  {"url": "https://raw.githubusercontent.com/RobinPlay-2025/rust-update-bot/main/carbonvector_go.png"},
-        "image":      {"url": "https://raw.githubusercontent.com/RobinPlay-2025/rust-update-bot/main/spacer.png"},
         "footer":     {"text": f"RustPulse • Carbon Hooks • {branch_emoji} {hook['branch']}"},
         "timestamp":  now_iso(),
     }
