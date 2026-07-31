@@ -247,9 +247,6 @@ def embed_carbon(old: str, release: dict) -> dict:
 def embed_hooks(hook: dict) -> dict:
     branch_emoji = {"staging": "🧪", "aux03": "🔧", "public": "✅", "edge": "⚡"}.get(hook["branch"], "🪝")
 
-    has_debug   = "debug"   in hook["rel_type"]
-    has_release = "release" in hook["rel_type"]
-
     # Oxide Hooks URL
     oxide_url = f"https://api.carbonmod.gg/oxide/{hook['branch']}.opj"
 
@@ -260,15 +257,11 @@ def embed_hooks(hook: dict) -> dict:
         f"Unix:\n[Carbon.Hooks.Community.dll]({dl_url})\n[Carbon.Hooks.Oxide.dll]({dl_url})"
     )
 
-    if has_debug and has_release:
-        download_fields = [
-            {"name": "Download Debug",   "value": one_col, "inline": True},
-            {"name": "Download Release", "value": one_col, "inline": True},
-        ]
-    elif has_debug:
-        download_fields = [{"name": "Download Debug",   "value": one_col, "inline": False}]
-    else:
-        download_fields = [{"name": "Download Release", "value": one_col, "inline": False}]
+    # Всегда показываем обе колонки для 100% соответствия оригиналу
+    download_fields = [
+        {"name": "Download Debug",   "value": one_col, "inline": True},
+        {"name": "Download Release", "value": one_col, "inline": True},
+    ]
 
     return {
         "title":       "Hook Update",
@@ -276,17 +269,18 @@ def embed_hooks(hook: dict) -> dict:
         "description": "**New protocol hook update available!**\nRestart the server with the same protocol to update.",
         "fields": [
             {"name": "Protocol", "value": hook["protocol"], "inline": True},
-            {"name": "Type",     "value": hook["rel_type"], "inline": True},
+            {"name": "Type",     "value": "debug+release",  "inline": True},
             {"name": "Rust",     "value": hook["branch"],   "inline": True},
             {"name": "Oxide Hooks",
              "value": f"[Rust.opj]({oxide_url})",
              "inline": False},
             *download_fields,
         ],
-        "thumbnail":  {"url": "https://files.facepunch.com/rust/logo.png"},
+        "thumbnail":  {"url": "https://assets.facepunch.com/brand/rust_logo.png"},
         "footer":     {"text": f"RustPulse • Carbon Hooks • {branch_emoji} {hook['branch']}"},
         "timestamp":  now_iso(),
     }
+
 
 
 
