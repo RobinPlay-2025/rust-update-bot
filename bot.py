@@ -250,10 +250,10 @@ def embed_hooks(hook: dict) -> dict:
     # Oxide Hooks URL
     oxide_url = f"https://api.carbonmod.gg/oxide/{hook['branch']}.opj"
 
-    # Ссылки на скачивание с невидимыми пробелами \u200b для красивого переноса строк на узких экранах
+    # Ссылки на скачивание (без каких-либо скрытых пробелов)
     dl_url = hook["url"]
-    comm_dll = "Carbon.\u200bHooks.\u200bCommunity.\u200bdll"
-    ox_dll   = "Carbon.\u200bHooks.\u200bOxide.\u200bdll"
+    comm_dll = "Carbon.Hooks.Community.dll"
+    ox_dll   = "Carbon.Hooks.Oxide.dll"
     
     one_col = (
         f"Windows:\n[{comm_dll}]({dl_url})\n[{ox_dll}]({dl_url})\n"
@@ -280,6 +280,7 @@ def embed_hooks(hook: dict) -> dict:
             *download_fields,
         ],
         "thumbnail":  {"url": "https://raw.githubusercontent.com/RobinPlay-2025/rust-update-bot/main/carbonvector_go.png"},
+        "image":      {"url": "https://raw.githubusercontent.com/RobinPlay-2025/rust-update-bot/main/spacer.png"},
         "footer":     {"text": f"RustPulse • Carbon Hooks • {branch_emoji} {hook['branch']}"},
         "timestamp":  now_iso(),
     }
