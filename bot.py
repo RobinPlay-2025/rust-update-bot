@@ -225,7 +225,7 @@ def embed_oxide(old: str, release: dict) -> dict:
     return {
         "title":       "⚙️  Новый релиз Oxide / uMod",
         "color":       COLOR_OXIDE,
-        "description": f"```\n{body}\n```" if body else "",
+        "description": body if body else "",
         "fields": [
             {"name": "Предыдущая версия", "value": f"`{old}`",     "inline": True},
             {"name": "Новая версия",       "value": f"`{new_ver}`", "inline": True},
@@ -240,7 +240,7 @@ def embed_carbon(old: str, release: dict) -> dict:
     return {
         "title":       "🔶  Новый релиз Carbon",
         "color":       COLOR_CARBON,
-        "description": f"```\n{body}\n```" if body else "",
+        "description": body if body else "",
         "fields": [
             {"name": "Предыдущая версия", "value": f"`{old}`",     "inline": True},
             {"name": "Новая версия",       "value": f"`{new_ver}`", "inline": True},
