@@ -359,9 +359,24 @@ def main() -> None:
     release = get_github_latest_release("CarbonCommunity/Carbon")
     if release:
         new_ver = release["tag_name"]
+        # Carbon использует теги вроде "production_build". Настоящая версия лежит в .info файле!
+        for a in release.get("assets", []):
+            if a["name"] == "Carbon.Windows.Release.info":
+                try:
+                    r_info = requests.get(a["browser_download_url"], timeout=10)
+                    if r_info.status_code == 200:
+                        info_data = r_info.json()
+                        if "Version" in info_data:
+                            new_ver = info_data["Version"]
+                except Exception:
+                    pass
+                break
+
         old_ver = versions.get("carbon", "unknown")
         if old_ver != new_ver:
             log("+", f"Carbon: {old_ver} -> {new_ver}")
+            # Подменяем tag_name, чтобы в embed_carbon тоже ушла красивая версия
+            release["tag_name"] = new_ver
             send_embed(CHANNELS["carbon"], embed_carbon(old_ver, release))
             versions["carbon"] = new_ver
             updated = True
