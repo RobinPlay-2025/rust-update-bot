@@ -257,10 +257,10 @@ def embed_hooks(hook: dict) -> dict:
         f"Unix:\n[Carbon.Hooks.Community.dll]({dl_url})\n[Carbon.Hooks.Oxide.dll]({dl_url})"
     )
 
-    # Всегда показываем обе колонки для 100% соответствия оригиналу
+    # Выводим их друг под другом, чтобы в Lolka хватало ширины текста и он не переносился
     download_fields = [
-        {"name": "Download Debug",   "value": one_col, "inline": True},
-        {"name": "Download Release", "value": one_col, "inline": True},
+        {"name": "Download Debug",   "value": one_col, "inline": False},
+        {"name": "Download Release", "value": one_col, "inline": False},
     ]
 
     return {
