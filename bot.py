@@ -261,23 +261,22 @@ def embed_hooks(hook: dict) -> dict:
     )
 
     # Располагаем блоки скачивания друг под другом (inline=False), 
-    # чтобы они занимали всю ширину и текст 100% не переносился
+    # чтобы они занимали всю ширину и текст 100% не переносился.
+    # Добавляем разделительную полосу после первого блока.
     download_fields = [
-        {"name": "Download Debug",   "value": one_col, "inline": False},
-        {"name": "Download Release", "value": one_col, "inline": False},
+        {"name": "Скачать (Debug)",   "value": one_col + "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "inline": False},
+        {"name": "Скачать (Release)", "value": one_col, "inline": False},
     ]
 
     return {
-        "title":       "Hook Update",
+        "title":       "Обновление хуков (Hook Update)",
         "color":       0x76B82A,
-        "description": "**New protocol hook update available!**\nRestart the server with the same protocol to update.",
+        "description": "**Доступно новое обновление хуков для протокола!**\nПерезапустите сервер с тем же протоколом для обновления.",
         "fields": [
-            {"name": "Protocol", "value": hook["protocol"], "inline": True},
-            {"name": "Type",     "value": "debug+release",  "inline": True},
-            {"name": "Rust",     "value": hook["branch"],   "inline": True},
-            {"name": "Oxide Hooks",
-             "value": f"[Rust.opj]({oxide_url})",
-             "inline": False},
+            {"name": "Протокол",   "value": hook["protocol"], "inline": True},
+            {"name": "Тип",        "value": "debug+release",  "inline": True},
+            {"name": "Ветка",      "value": hook["branch"],   "inline": True},
+            {"name": "Хуки Oxide", "value": f"[Rust.opj]({oxide_url})", "inline": False},
             *download_fields,
         ],
         "thumbnail":  {"url": "https://raw.githubusercontent.com/RobinPlay-2025/rust-update-bot/main/carbonvector_go.png"},
