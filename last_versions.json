@@ -1,7 +1,7 @@
 {
-  "rust_server": "unknown",
-  "rust_client": "unknown",
-  "oxide": "unknown",
-  "carbon": "unknown",
-  "carbon_hooks": ""
+  "rust_server": "24253458",
+  "rust_client": "24457949",
+  "oxide": "2.0.7529",
+  "carbon": "production_build",
+  "carbon_hooks": "9703ab1b16f1d1b110aab10a7f8280e31bf2e7d2"
 }
