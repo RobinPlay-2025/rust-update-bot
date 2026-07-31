@@ -262,6 +262,7 @@ def embed_hooks(hook: dict) -> dict:
 
     return {
         "title":       "Обновление хуков (Hook Update)",
+        "url":         "https://github.com/CarbonCommunity/Carbon/actions",
         "color":       0x76B82A,
         "description": "**Доступно новое обновление хуков для протокола!**\nПерезапустите сервер с тем же протоколом для обновления.",
         "fields": [
