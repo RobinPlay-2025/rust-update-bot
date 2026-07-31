@@ -103,29 +103,26 @@ def _parse_info_file(url: str) -> dict:
         return {}
 
 def get_carbon_hooks_release() -> dict | None:
-    """Read .info files from Carbon GitHub releases to get Protocol/Branch/Type. Priority: production > staging > aux03."""
+    """Read .info files from Carbon GitHub releases to get Protocol/Branch/Type. Picks the most recently published release."""
     repo = "CarbonCommunity/Carbon"
-    priority_tags = ["production_build", "rustbeta_staging_build", "rustbeta_aux03_build", "edge_build"]
     try:
         url = f"https://api.github.com/repos/{repo}/releases"
         r = requests.get(url, headers=GITHUB_HEADERS, params={"per_page": 20}, timeout=20)
         r.raise_for_status()
         releases = r.json()
 
-        # Сортируем по приоритету тега
-        def tag_priority(rel: dict) -> int:
-            tag = rel.get("tag_name", "")
-            for i, t in enumerate(priority_tags):
-                if t in tag:
-                    return i
-            return 99
-
-        sorted_releases = sorted(releases, key=tag_priority)
+        # Сортируем по дате публикации — самый свежий первый
+        sorted_releases = sorted(
+            releases,
+            key=lambda rel: rel.get("published_at", ""),
+            reverse=True
+        )
 
         for release in sorted_releases:
-            tag  = release.get("tag_name", "")
+            tag    = release.get("tag_name", "")
             assets = release.get("assets", [])
-            # Ищем .info файл для Windows Release или Debug
+
+            # Ищем .info файл (Windows, не Minimal)
             info_asset = next(
                 (a for a in assets if a["name"].endswith(".info") and "Windows" in a["name"] and "Minimal" not in a["name"]),
                 next((a for a in assets if a["name"].endswith(".info")), None)
@@ -137,21 +134,21 @@ def get_carbon_hooks_release() -> dict | None:
             if not info:
                 continue
 
-            protocol = info.get("Protocol", tag)
-            cfg      = info.get("Config", "")
+            protocol  = info.get("Protocol", tag)
             branch_raw = info.get("Commit", {}).get("Branch", tag)
 
             # Нормализуем ветку
-            if "staging" in branch_raw.lower() or "staging" in tag.lower():
+            tag_lower = tag.lower()
+            if "staging" in branch_raw.lower() or "staging" in tag_lower:
                 branch = "staging"
-            elif "aux03" in branch_raw.lower() or "aux03" in tag.lower():
+            elif "aux03" in branch_raw.lower() or "aux03" in tag_lower:
                 branch = "aux03"
-            elif "edge" in tag.lower():
+            elif "edge" in tag_lower:
                 branch = "edge"
             else:
                 branch = "public"
 
-            # Определяем тип сборки
+            # Тип сборки
             has_debug   = any("Debug"   in a["name"] and "Minimal" not in a["name"] for a in assets)
             has_release = any("Release" in a["name"] and "Minimal" not in a["name"] for a in assets)
             if has_debug and has_release:
@@ -162,7 +159,7 @@ def get_carbon_hooks_release() -> dict | None:
                 rel_type = "release"
 
             return {
-                "id":       f"{release['id']}",
+                "id":       str(release["id"]),
                 "tag":      tag,
                 "protocol": protocol,
                 "branch":   branch,
@@ -177,6 +174,7 @@ def get_carbon_hooks_release() -> dict | None:
     except Exception as e:
         log("!", f"Carbon Hooks ошибка: {e}")
         return None
+
 
 # ─── Embed-шаблоны ────────────────────────────────────────────────────────────
 
@@ -248,22 +246,49 @@ def embed_carbon(old: str, release: dict) -> dict:
 
 def embed_hooks(hook: dict) -> dict:
     branch_emoji = {"staging": "🧪", "aux03": "🔧", "public": "✅", "edge": "⚡"}.get(hook["branch"], "🪝")
+
+    has_debug   = "debug"   in hook["rel_type"]
+    has_release = "release" in hook["rel_type"]
+
+    # Oxide Hooks URL
+    oxide_url = f"https://api.carbonmod.gg/oxide/{hook['branch']}.opj"
+
+    # Ссылки на скачивание
+    dl_url = hook["url"]
+    one_col = (
+        f"Windows:\n[Carbon.Hooks.Community.dll]({dl_url})\n[Carbon.Hooks.Oxide.dll]({dl_url})\n"
+        f"Unix:\n[Carbon.Hooks.Community.dll]({dl_url})\n[Carbon.Hooks.Oxide.dll]({dl_url})"
+    )
+
+    if has_debug and has_release:
+        download_fields = [
+            {"name": "Download Debug",   "value": one_col, "inline": True},
+            {"name": "Download Release", "value": one_col, "inline": True},
+        ]
+    elif has_debug:
+        download_fields = [{"name": "Download Debug",   "value": one_col, "inline": False}]
+    else:
+        download_fields = [{"name": "Download Release", "value": one_col, "inline": False}]
+
     return {
-        "title":       f"🪝  Обновление хуков Carbon [{hook['branch'].upper()}]",
-        "color":       COLOR_HOOKS,
+        "title":       "Hook Update",
+        "color":       0x76B82A,
         "description": "**New protocol hook update available!**\nRestart the server with the same protocol to update.",
         "fields": [
-            {"name": "Protocol", "value": f"`{hook['protocol']}`",  "inline": True},
-            {"name": "Type",     "value": f"`{hook['rel_type']}`",  "inline": True},
-            {"name": "Rust",     "value": f"`{hook['branch']}`",    "inline": True},
-            {"name": "Version",  "value": f"`{hook['version']}`",   "inline": True},
-            {"name": "Commit",   "value": f"`{hook['commit']}`",    "inline": True},
-            {"name": "GitHub Release",
-             "value": f"[Открыть]({hook['url']})", "inline": False},
+            {"name": "Protocol", "value": hook["protocol"], "inline": True},
+            {"name": "Type",     "value": hook["rel_type"], "inline": True},
+            {"name": "Rust",     "value": hook["branch"],   "inline": True},
+            {"name": "Oxide Hooks",
+             "value": f"[Rust.opj]({oxide_url})",
+             "inline": False},
+            *download_fields,
         ],
-        "footer":    {"text": f"RustPulse • Carbon Hooks • {branch_emoji} {hook['branch']}"},
-        "timestamp": now_iso(),
+        "thumbnail":  {"url": "https://files.facepunch.com/rust/logo.png"},
+        "footer":     {"text": f"RustPulse • Carbon Hooks • {branch_emoji} {hook['branch']}"},
+        "timestamp":  now_iso(),
     }
+
+
 
 
 # ─── Точка входа ─────────────────────────────────────────────────────────────
