@@ -158,15 +158,28 @@ def get_carbon_hooks_release() -> dict | None:
             else:
                 rel_type = "release"
 
+            # Пытаемся получить прямую ссылку на конкретный запуск Actions (как в оригинальном боте)
+            action_url = "https://github.com/CarbonCommunity/Carbon/actions"
+            try:
+                r_act = requests.get(f"https://api.github.com/repos/{repo}/actions/runs", headers=GITHUB_HEADERS, params={"per_page": 10}, timeout=10)
+                if r_act.status_code == 200:
+                    for run in r_act.json().get("workflow_runs", []):
+                        if run.get("name") == "Protocol Hooks Build":
+                            action_url = run.get("html_url")
+                            break
+            except Exception:
+                pass
+
             return {
-                "id":       str(release["id"]),
-                "tag":      tag,
-                "protocol": protocol,
-                "branch":   branch,
-                "rel_type": rel_type,
-                "version":  info.get("Version", ""),
-                "commit":   info.get("Commit", {}).get("HashShort", ""),
-                "url":      release["html_url"],
+                "id":         str(release["id"]),
+                "tag":        tag,
+                "protocol":   protocol,
+                "branch":     branch,
+                "rel_type":   rel_type,
+                "version":    info.get("Version", ""),
+                "commit":     info.get("Commit", {}).get("HashShort", ""),
+                "url":        release["html_url"],
+                "action_url": action_url,
             }
 
         log("-", "Carbon: .info файлы не найдены в релизах")
@@ -262,7 +275,7 @@ def embed_hooks(hook: dict) -> dict:
 
     return {
         "title":       "Обновление хуков (Hook Update)",
-        "url":         "https://github.com/CarbonCommunity/Carbon/actions",
+        "url":         hook.get("action_url", "https://github.com/CarbonCommunity/Carbon/actions"),
         "color":       0x76B82A,
         "description": "**Доступно новое обновление хуков для протокола!**\nПерезапустите сервер с тем же протоколом для обновления.",
         "fields": [
