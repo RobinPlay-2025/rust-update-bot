@@ -190,8 +190,6 @@ def embed_rust_server(old: str, new: str) -> dict:
              "value": "[SteamDB](https://steamdb.info/app/258550/) • [Facepunch Blog](https://rust.facepunch.com/blog)",
              "inline": False},
         ],
-        "footer":    {"text": "RustPulse • Rust Server"},
-        "timestamp": now_iso(),
     }
 
 def embed_rust_client(old: str, new: str) -> dict:
@@ -206,8 +204,6 @@ def embed_rust_client(old: str, new: str) -> dict:
              "value": "[SteamDB](https://steamdb.info/app/252490/) • [Facepunch Blog](https://rust.facepunch.com/blog)",
              "inline": False},
         ],
-        "footer":    {"text": "RustPulse • Rust Client"},
-        "timestamp": now_iso(),
     }
 
 def embed_oxide(old: str, release: dict) -> dict:
@@ -223,8 +219,6 @@ def embed_oxide(old: str, release: dict) -> dict:
             {"name": "GitHub Release",
              "value": f"[Открыть]({release['html_url']})", "inline": False},
         ],
-        "footer":    {"text": "RustPulse • Oxide/uMod"},
-        "timestamp": now_iso(),
     }
 
 def embed_carbon(old: str, release: dict) -> dict:
@@ -240,8 +234,6 @@ def embed_carbon(old: str, release: dict) -> dict:
             {"name": "GitHub Release",
              "value": f"[Открыть]({release['html_url']})", "inline": False},
         ],
-        "footer":    {"text": "RustPulse • Carbon"},
-        "timestamp": now_iso(),
     }
 
 def embed_hooks(hook: dict) -> dict:
@@ -280,8 +272,6 @@ def embed_hooks(hook: dict) -> dict:
             *download_fields,
         ],
         "thumbnail":  {"url": "https://raw.githubusercontent.com/RobinPlay-2025/rust-update-bot/main/carbonvector_go.png"},
-        "footer":     {"text": f"RustPulse • Carbon Hooks • {branch_emoji} {hook['branch']}"},
-        "timestamp":  now_iso(),
     }
 
 
