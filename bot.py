@@ -1,7 +1,4 @@
-"""
-RustPulse — бот мониторинга обновлений Rust/Oxide/Carbon для LOLKA
-Запускается через GitHub Actions каждые 30 минут.
-"""
+"""RustPulse - Rust/Oxide/Carbon update monitoring bot for LOLKA. Runs via GitHub Actions cron."""
 
 import os
 import json
@@ -71,7 +68,7 @@ def log(symbol: str, text: str) -> None:
 # ─── Источники данных ─────────────────────────────────────────────────────────
 
 def get_steam_buildid(appid: int) -> str | None:
-    """Получить BuildID из SteamCMD API."""
+    """Get public branch BuildID from steamcmd.net API."""
     try:
         url = f"https://api.steamcmd.net/v1/info/{appid}"
         r = requests.get(url, timeout=20)
@@ -84,7 +81,7 @@ def get_steam_buildid(appid: int) -> str | None:
         return None
 
 def get_github_latest_release(repo: str) -> dict | None:
-    """Получить последний GitHub Release."""
+    """Get the latest GitHub Release for a given repo (owner/name)."""
     try:
         url = f"https://api.github.com/repos/{repo}/releases/latest"
         r = requests.get(url, headers=GITHUB_HEADERS, timeout=20)
@@ -96,44 +93,86 @@ def get_github_latest_release(repo: str) -> dict | None:
         log("!", f"GitHub Releases ({repo}) ошибка: {e}")
         return None
 
-def get_carbon_hooks_commit() -> dict | None:
-    """
-    Получить последний коммит Carbon, затрагивающий файлы хуков.
-    Возвращает dict с sha, message, author, hook_files или None.
-    """
-    repo = "CarbonCommunity/Carbon"
+def _parse_info_file(url: str) -> dict:
+    """Download and parse a Carbon .info JSON file."""
     try:
-        url = f"https://api.github.com/repos/{repo}/commits"
-        r = requests.get(url, headers=GITHUB_HEADERS, params={"per_page": 15}, timeout=20)
+        r = requests.get(url, timeout=15)
         r.raise_for_status()
-        commits = r.json()
+        return r.json()
+    except Exception:
+        return {}
 
-        for commit in commits:
-            sha = commit["sha"]
-            detail_r = requests.get(
-                f"https://api.github.com/repos/{repo}/commits/{sha}",
-                headers=GITHUB_HEADERS, timeout=20
+def get_carbon_hooks_release() -> dict | None:
+    """Read .info files from Carbon GitHub releases to get Protocol/Branch/Type. Priority: production > staging > aux03."""
+    repo = "CarbonCommunity/Carbon"
+    priority_tags = ["production_build", "rustbeta_staging_build", "rustbeta_aux03_build", "edge_build"]
+    try:
+        url = f"https://api.github.com/repos/{repo}/releases"
+        r = requests.get(url, headers=GITHUB_HEADERS, params={"per_page": 20}, timeout=20)
+        r.raise_for_status()
+        releases = r.json()
+
+        # Сортируем по приоритету тега
+        def tag_priority(rel: dict) -> int:
+            tag = rel.get("tag_name", "")
+            for i, t in enumerate(priority_tags):
+                if t in tag:
+                    return i
+            return 99
+
+        sorted_releases = sorted(releases, key=tag_priority)
+
+        for release in sorted_releases:
+            tag  = release.get("tag_name", "")
+            assets = release.get("assets", [])
+            # Ищем .info файл для Windows Release или Debug
+            info_asset = next(
+                (a for a in assets if a["name"].endswith(".info") and "Windows" in a["name"] and "Minimal" not in a["name"]),
+                next((a for a in assets if a["name"].endswith(".info")), None)
             )
-            detail_r.raise_for_status()
-            detail = detail_r.json()
-            files = detail.get("files", [])
+            if not info_asset:
+                continue
 
-            hook_files = [
-                f["filename"] for f in files
-                if "hook" in f["filename"].lower()
-            ]
-            if hook_files:
-                return {
-                    "sha":        sha[:8],
-                    "full_sha":   sha,
-                    "message":    commit["commit"]["message"].split("\n")[0][:120],
-                    "author":     commit["commit"]["author"]["name"],
-                    "date":       commit["commit"]["author"]["date"],
-                    "hook_files": hook_files[:10],
-                    "url":        commit["html_url"],
-                }
+            info = _parse_info_file(info_asset["browser_download_url"])
+            if not info:
+                continue
 
-        log("-", "Carbon: коммиты с хуками не найдены в последних 15")
+            protocol = info.get("Protocol", tag)
+            cfg      = info.get("Config", "")
+            branch_raw = info.get("Commit", {}).get("Branch", tag)
+
+            # Нормализуем ветку
+            if "staging" in branch_raw.lower() or "staging" in tag.lower():
+                branch = "staging"
+            elif "aux03" in branch_raw.lower() or "aux03" in tag.lower():
+                branch = "aux03"
+            elif "edge" in tag.lower():
+                branch = "edge"
+            else:
+                branch = "public"
+
+            # Определяем тип сборки
+            has_debug   = any("Debug"   in a["name"] and "Minimal" not in a["name"] for a in assets)
+            has_release = any("Release" in a["name"] and "Minimal" not in a["name"] for a in assets)
+            if has_debug and has_release:
+                rel_type = "debug+release"
+            elif has_debug:
+                rel_type = "debug"
+            else:
+                rel_type = "release"
+
+            return {
+                "id":       f"{release['id']}",
+                "tag":      tag,
+                "protocol": protocol,
+                "branch":   branch,
+                "rel_type": rel_type,
+                "version":  info.get("Version", ""),
+                "commit":   info.get("Commit", {}).get("HashShort", ""),
+                "url":      release["html_url"],
+            }
+
+        log("-", "Carbon: .info файлы не найдены в релизах")
         return None
     except Exception as e:
         log("!", f"Carbon Hooks ошибка: {e}")
@@ -207,23 +246,25 @@ def embed_carbon(old: str, release: dict) -> dict:
         "timestamp": now_iso(),
     }
 
-def embed_hooks(commit: dict) -> dict:
-    files_text = "\n".join(commit["hook_files"]) or "—"
+def embed_hooks(hook: dict) -> dict:
+    branch_emoji = {"staging": "🧪", "aux03": "🔧", "public": "✅", "edge": "⚡"}.get(hook["branch"], "🪝")
     return {
-        "title":       "🪝  Обновление хуков Carbon",
+        "title":       f"🪝  Обновление хуков Carbon [{hook['branch'].upper()}]",
         "color":       COLOR_HOOKS,
-        "description": f"**{commit['message']}**",
+        "description": "**New protocol hook update available!**\nRestart the server with the same protocol to update.",
         "fields": [
-            {"name": "Коммит", "value": f"`{commit['sha']}`", "inline": True},
-            {"name": "Автор",  "value": commit["author"],      "inline": True},
-            {"name": "Изменённые файлы хуков",
-             "value": f"```\n{files_text}\n```", "inline": False},
-            {"name": "Смотреть коммит",
-             "value": f"[GitHub]({commit['url']})", "inline": False},
+            {"name": "Protocol", "value": f"`{hook['protocol']}`",  "inline": True},
+            {"name": "Type",     "value": f"`{hook['rel_type']}`",  "inline": True},
+            {"name": "Rust",     "value": f"`{hook['branch']}`",    "inline": True},
+            {"name": "Version",  "value": f"`{hook['version']}`",   "inline": True},
+            {"name": "Commit",   "value": f"`{hook['commit']}`",    "inline": True},
+            {"name": "GitHub Release",
+             "value": f"[Открыть]({hook['url']})", "inline": False},
         ],
-        "footer":    {"text": "RustPulse • Carbon Hooks"},
+        "footer":    {"text": f"RustPulse • Carbon Hooks • {branch_emoji} {hook['branch']}"},
         "timestamp": now_iso(),
     }
+
 
 # ─── Точка входа ─────────────────────────────────────────────────────────────
 
@@ -290,18 +331,18 @@ def main() -> None:
             log("=", f"Carbon без изменений ({new_ver})")
 
     # 5. Carbon Hooks
-    log("~", "Проверяю хуки Carbon...")
-    hook = get_carbon_hooks_commit()
+    log("~", "Проверяю хуки Carbon (GitHub Releases)...")
+    hook = get_carbon_hooks_release()
     if hook:
-        new_sha = hook["full_sha"]
-        old_sha = versions.get("carbon_hooks", "")
-        if old_sha != new_sha:
-            log("+", f"Carbon Hooks: {old_sha[:8]} -> {new_sha[:8]} ({len(hook['hook_files'])} файл(ов))")
+        new_id = hook["id"]
+        old_id = versions.get("carbon_hooks", "")
+        if old_id != new_id:
+            log("+", f"Carbon Hooks: {old_id} -> {new_id} (ветка: {hook['branch']})")
             send_embed(CHANNELS["hooks"], embed_hooks(hook))
-            versions["carbon_hooks"] = new_sha
+            versions["carbon_hooks"] = new_id
             updated = True
         else:
-            log("=", f"Carbon Hooks без изменений ({new_sha[:8]})")
+            log("=", f"Carbon Hooks без изменений (id: {new_id}, ветка: {hook['branch']})")
 
     # Сохраняем версии если были изменения
     if updated:
