@@ -264,7 +264,7 @@ def embed_hooks(hook: dict) -> dict:
     # чтобы они занимали всю ширину и текст 100% не переносился.
     # Добавляем разделительную полосу после первого блока.
     download_fields = [
-        {"name": "Скачать (Debug)",   "value": one_col + "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", "inline": False},
+        {"name": "Скачать (Debug)",   "value": one_col + "\n━━━━━━━━━━━━━━━━━━━", "inline": False},
         {"name": "Скачать (Release)", "value": one_col, "inline": False},
     ]
 
