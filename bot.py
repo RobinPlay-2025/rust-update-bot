@@ -260,10 +260,11 @@ def embed_hooks(hook: dict) -> dict:
         f"Unix:\n[{comm_dll}]({dl_url})\n[{ox_dll}]({dl_url})"
     )
 
-    # Возвращаем 2 колонки как в оригинале (без невидимых символов)
+    # Располагаем блоки скачивания друг под другом (inline=False), 
+    # чтобы они занимали всю ширину и текст 100% не переносился
     download_fields = [
-        {"name": "Download Debug",   "value": one_col, "inline": True},
-        {"name": "Download Release", "value": one_col, "inline": True},
+        {"name": "Download Debug",   "value": one_col, "inline": False},
+        {"name": "Download Release", "value": one_col, "inline": False},
     ]
 
     return {
