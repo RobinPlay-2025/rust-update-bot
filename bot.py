@@ -276,10 +276,12 @@ def embed_hooks(hook: dict) -> dict:
              "inline": False},
             *download_fields,
         ],
-        "thumbnail":  {"url": "https://assets.facepunch.com/brand/rust_logo.png"},
+        "thumbnail":  {"url": "https://raw.githubusercontent.com/RobinPlay-2025/rust-update-bot/main/carbonvector_go.png"},
         "footer":     {"text": f"RustPulse • Carbon Hooks • {branch_emoji} {hook['branch']}"},
         "timestamp":  now_iso(),
     }
+
+
 
 
 
