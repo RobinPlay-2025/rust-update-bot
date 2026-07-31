@@ -17,7 +17,7 @@
 ## Настройка
 
 ### 1. Создать приватный репозиторий на GitHub
-Залить все файлы в **приватный** репозиторий.
+Залить все файлы в **открытый** репозиторий.
 
 ### 2. Добавить GitHub Secrets
 `Settings` → `Secrets and variables` → `Actions` → `New repository secret`
