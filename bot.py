@@ -321,9 +321,11 @@ def main() -> None:
         old = versions.get("rust_server", "unknown")
         if old != build:
             log("+", f"Rust Server: {old} -> {build}")
-            send_embed(CHANNELS["rust_server"], embed_rust_server(old, build))
-            versions["rust_server"] = build
-            updated = True
+            if send_embed(CHANNELS["rust_server"], embed_rust_server(old, build)):
+                versions["rust_server"] = build
+                updated = True
+            else:
+                log("!", "Ошибка отправки в LOLKA, версия не сохранена")
         else:
             log("=", f"Rust Server без изменений ({build})")
 
@@ -334,9 +336,11 @@ def main() -> None:
         old = versions.get("rust_client", "unknown")
         if old != build:
             log("+", f"Rust Client: {old} -> {build}")
-            send_embed(CHANNELS["rust_client"], embed_rust_client(old, build))
-            versions["rust_client"] = build
-            updated = True
+            if send_embed(CHANNELS["rust_client"], embed_rust_client(old, build)):
+                versions["rust_client"] = build
+                updated = True
+            else:
+                log("!", "Ошибка отправки в LOLKA, версия не сохранена")
         else:
             log("=", f"Rust Client без изменений ({build})")
 
@@ -348,9 +352,11 @@ def main() -> None:
         old_ver = versions.get("oxide", "unknown")
         if old_ver != new_ver:
             log("+", f"Oxide: {old_ver} -> {new_ver}")
-            send_embed(CHANNELS["oxide"], embed_oxide(old_ver, release))
-            versions["oxide"] = new_ver
-            updated = True
+            if send_embed(CHANNELS["oxide"], embed_oxide(old_ver, release)):
+                versions["oxide"] = new_ver
+                updated = True
+            else:
+                log("!", "Ошибка отправки в LOLKA, версия не сохранена")
         else:
             log("=", f"Oxide без изменений ({new_ver})")
 
@@ -377,9 +383,11 @@ def main() -> None:
             log("+", f"Carbon: {old_ver} -> {new_ver}")
             # Подменяем tag_name, чтобы в embed_carbon тоже ушла красивая версия
             release["tag_name"] = new_ver
-            send_embed(CHANNELS["carbon"], embed_carbon(old_ver, release))
-            versions["carbon"] = new_ver
-            updated = True
+            if send_embed(CHANNELS["carbon"], embed_carbon(old_ver, release)):
+                versions["carbon"] = new_ver
+                updated = True
+            else:
+                log("!", "Ошибка отправки в LOLKA, версия не сохранена")
         else:
             log("=", f"Carbon без изменений ({new_ver})")
 
@@ -391,9 +399,11 @@ def main() -> None:
         old_id = versions.get("carbon_hooks", "")
         if old_id != new_id:
             log("+", f"Carbon Hooks: {old_id} -> {new_id} (ветка: {hook['branch']})")
-            send_embed(CHANNELS["hooks"], embed_hooks(hook))
-            versions["carbon_hooks"] = new_id
-            updated = True
+            if send_embed(CHANNELS["hooks"], embed_hooks(hook)):
+                versions["carbon_hooks"] = new_id
+                updated = True
+            else:
+                log("!", "Ошибка отправки в LOLKA, версия не сохранена")
         else:
             log("=", f"Carbon Hooks без изменений (id: {new_id}, ветка: {hook['branch']})")
 

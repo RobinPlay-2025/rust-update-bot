@@ -2,8 +2,8 @@ name: RustPulse — Check Updates
 
 on:
   schedule:
-    # Каждые 30 минут
-    - cron: '*/30 * * * *'
+    # Каждые 5 минут (максимальная частота для GitHub Actions)
+    - cron: '*/5 * * * *'
   # Ручной запуск для тестирования
   workflow_dispatch:
 
