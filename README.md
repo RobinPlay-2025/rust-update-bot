@@ -10,7 +10,7 @@
 | `#обнова-карбона` | Carbon (GitHub Releases / .info) |
 | `#обнова-хуков` | Carbon Hooks (GitHub Releases / .info) |
 
-Запускается каждые **30 минут** через GitHub Actions — без сервера, без VPS.
+Запускается каждые **5 минут** через GitHub Actions — без сервера, без VPS.
 
 ---
 
