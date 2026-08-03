@@ -2,31 +2,36 @@
 
 Автоматически отслеживает выход обновлений и публикует уведомления в 5 каналов LOLKA.
 
-| Канал | Что отслеживает |
-|---|---|
-| `#обнова-сервера` | Rust Dedicated Server (Steam AppID 258550) |
-| `#обнова-клиента` | Rust Client (Steam AppID 252490) |
-| `#обнова-оксида` | Oxide/uMod (GitHub Releases) |
-| `#обнова-карбона` | Carbon (GitHub Releases / .info) |
-| `#обнова-хуков` | Carbon Hooks (GitHub Releases / .info) |
+| Канал | Что отслеживает | Источник |
+|---|---|---|
+| `#обнова-сервера` | Rust Dedicated Server | Steam AppID 258550 (steamcmd.net API) |
+| `#обнова-клиента` | Rust Client | Steam AppID 252490 (steamcmd.net API) |
+| `#обнова-оксида` | Oxide / uMod | GitHub Releases (oxidemod/Oxide.Rust) |
+| `#обнова-карбона` | Carbon | GitHub Releases / `.info` файл |
+| `#обнова-хуков` | Carbon Hooks | **`api.carbonmod.gg` MSILHash fingerprint** |
 
 Запускается каждые **5 минут** через GitHub Actions — без сервера, без VPS.
+
+> **Как детектируются хуки Carbon:**  
+> Бот скачивает `api.carbonmod.gg/oxide/{branch}.opj` и вычисляет MD5-отпечаток  
+> по всем `MSILHash` значениям. Fingerprint меняется при каждой пересборке хуков под новый протокол,  
+> что позволяет мгновенно реагировать на обновления без привязки к GitHub release timing.
 
 ---
 
 ## Настройка
 
-### 1. Создать приватный репозиторий на GitHub
-Залить все файлы в **открытый/приватный** репозиторий.
-(Если приватный репозиторий, то иконка в канале обновление хуков карбона отображаться не будет)
+### 1. Создать репозиторий на GitHub
+Залить все файлы в **открытый** репозиторий.  
+> ⚠️ Если репозиторий **приватный** — иконка в карточке обновления хуков Carbon не отобразится (ссылка на картинку будет недоступна).
 
 ### 2. Добавить GitHub Secrets
 `Settings` → `Secrets and variables` → `Actions` → `New repository secret`
 
-| Secret | Значение |
+| Secret | Описание |
 |---|---|
-| `GITHUB_TOKEN` | Персональный токен GitHub (нужен для обхода лимитов API) |
-| `LOLKA_TOKEN` | Токен бота из Портала разработчика LOLKA / Discord |
+| `LOLKA_TOKEN` | Токен бота из Портала разработчика LOLKA |
+| `GITHUB_TOKEN` | Персональный токен GitHub (снимает лимиты API) |
 | `CHANNEL_RUST_SERVER` | ID канала #обнова-сервера |
 | `CHANNEL_RUST_CLIENT` | ID канала #обнова-клиента |
 | `CHANNEL_OXIDE` | ID канала #обнова-оксида |
@@ -39,7 +44,7 @@
 ### 4. Первый запуск
 `Actions` → `RustPulse — Check Updates` → `Run workflow`
 
-При первом запуске бот сохранит текущие версии в `last_versions.json` и начнёт следить за изменениями.
+При первом запуске бот сохранит текущие версии и fingerprints в `last_versions.json` и начнёт следить за изменениями.
 
 ---
 
@@ -62,13 +67,33 @@ python bot.py
 
 ```
 rust-update-bot/
-├── .github/workflows/check_updates.yml  # GitHub Actions cron
+├── .github/workflows/check_updates.yml  # GitHub Actions cron (каждые 5 мин)
 ├── bot.py                                # Основной скрипт
-├── test_hooks.py                         # Скрипт для тестирования хуков
-├── test_preview.py                       # Скрипт для тестирования оформления
 ├── last_versions.json                    # Последние версии (авто-коммит)
-├── requirements.txt
-├── .env.example
+├── requirements.txt                      # requests==2.32.3
+├── .env.example                          # Пример переменных окружения
 ├── .gitignore
 └── README.md
+```
+
+---
+
+## Как это работает
+
+```
+GitHub Actions (каждые 5 мин)
+        │
+        ▼
+   python bot.py
+        │
+        ├── Steam API ──────────────► Rust Server / Client BuildID
+        ├── GitHub Releases ────────► Oxide версия
+        ├── GitHub Releases + .info ► Carbon версия
+        └── api.carbonmod.gg ───────► Carbon Hooks fingerprint (MSILHash)
+                │
+                ▼ (если есть изменение)
+        POST → lolka.app/api/bot/v10/channels/{id}/messages
+                │
+                ▼
+        git commit + push (last_versions.json)
 ```
