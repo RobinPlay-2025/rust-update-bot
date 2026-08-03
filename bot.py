@@ -2,6 +2,7 @@
 
 import os
 import json
+import hashlib
 import requests
 from datetime import datetime, timezone
 
@@ -102,91 +103,116 @@ def _parse_info_file(url: str) -> dict:
     except Exception:
         return {}
 
-def get_carbon_hooks_release() -> dict | None:
-    """Read .info files from Carbon GitHub releases to get Protocol/Branch/Type. Picks the most recently published release."""
-    repo = "CarbonCommunity/Carbon"
+def _compute_opj_fingerprint(branch: str) -> str | None:
+    """Fetch the .opj hook file from carbonmod.gg and compute a fingerprint from all MSILHash values.
+    This fingerprint changes every time Carbon rebuilds hooks for a new protocol."""
     try:
-        url = f"https://api.github.com/repos/{repo}/releases"
-        r = requests.get(url, headers=GITHUB_HEADERS, params={"per_page": 20}, timeout=20)
+        url = f"https://api.carbonmod.gg/oxide/{branch}.opj"
+        r = requests.get(url, timeout=20)
         r.raise_for_status()
-        releases = r.json()
+        data = r.json()
+        all_hashes = []
+        for manifest in data.get("Manifests", []):
+            for hook_entry in manifest.get("Hooks", []):
+                mh = hook_entry.get("Hook", {}).get("MSILHash", "")
+                if mh:
+                    all_hashes.append(mh)
+        if not all_hashes:
+            return None
+        return hashlib.md5("|".join(sorted(all_hashes)).encode()).hexdigest()[:16]
+    except Exception as e:
+        log("!", f"carbonmod.gg fingerprint ({branch}) ошибка: {e}")
+        return None
 
-        # Сортируем по дате публикации — самый свежий первый
-        sorted_releases = sorted(
-            releases,
-            key=lambda rel: rel.get("published_at", ""),
-            reverse=True
-        )
+def get_carbon_hooks_release() -> dict | None:
+    """Detect Carbon hook updates using carbonmod.gg MSILHash fingerprint.
+    Protocol / version info come from the latest GitHub release .info file."""
+    for branch in ["staging", "public", "aux03"]:
+        fp = _compute_opj_fingerprint(branch)
+        if not fp:
+            continue
 
-        for release in sorted_releases:
-            tag    = release.get("tag_name", "")
-            assets = release.get("assets", [])
+        repo = "CarbonCommunity/Carbon"
+        protocol   = ""
+        version    = ""
+        commit_h   = ""
+        rel_type   = "debug+release"
+        release_url = f"https://github.com/{repo}/releases"
+        action_url  = f"https://github.com/{repo}/actions"
 
-            # Ищем .info файл (Windows, не Minimal)
-            info_asset = next(
-                (a for a in assets if a["name"].endswith(".info") and "Windows" in a["name"] and "Minimal" not in a["name"]),
-                next((a for a in assets if a["name"].endswith(".info")), None)
+        # Пытаемся получить протокол из GitHub release .info
+        try:
+            r = requests.get(
+                f"https://api.github.com/repos/{repo}/releases",
+                headers=GITHUB_HEADERS,
+                params={"per_page": 10},
+                timeout=20
             )
-            if not info_asset:
-                continue
+            r.raise_for_status()
+            releases = sorted(r.json(), key=lambda x: x.get("published_at") or "", reverse=True)
 
-            info = _parse_info_file(info_asset["browser_download_url"])
-            if not info:
-                continue
+            for release in releases:
+                tag = release.get("tag_name", "").lower()
+                if branch == "staging" and "staging" not in tag:
+                    continue
+                if branch == "aux03" and "aux03" not in tag:
+                    continue
+                if branch == "public" and any(k in tag for k in ("staging", "aux03", "edge")):
+                    continue
 
-            protocol  = info.get("Protocol", tag)
-            branch_raw = info.get("Commit", {}).get("Branch", tag)
+                assets = release.get("assets", [])
+                info_asset = next(
+                    (a for a in assets if a["name"].endswith(".info") and "Windows" in a["name"] and "Minimal" not in a["name"]),
+                    next((a for a in assets if a["name"].endswith(".info")), None)
+                )
+                if not info_asset:
+                    continue
+                info = _parse_info_file(info_asset["browser_download_url"])
+                if not info:
+                    continue
 
-            # Нормализуем ветку
-            tag_lower = tag.lower()
-            if "staging" in branch_raw.lower() or "staging" in tag_lower:
-                branch = "staging"
-            elif "aux03" in branch_raw.lower() or "aux03" in tag_lower:
-                branch = "aux03"
-            elif "edge" in tag_lower:
-                branch = "edge"
-            else:
-                branch = "public"
+                protocol    = info.get("Protocol", release.get("tag_name", ""))
+                version     = info.get("Version", "")
+                commit_h    = info.get("Commit", {}).get("HashShort", "")
+                has_debug   = any("Debug"   in a["name"] and "Minimal" not in a["name"] for a in assets)
+                has_release = any("Release" in a["name"] and "Minimal" not in a["name"] for a in assets)
+                rel_type    = "debug+release" if (has_debug and has_release) else ("debug" if has_debug else "release")
+                release_url = release["html_url"]
+                break
 
-            # Тип сборки
-            has_debug   = any("Debug"   in a["name"] and "Minimal" not in a["name"] for a in assets)
-            has_release = any("Release" in a["name"] and "Minimal" not in a["name"] for a in assets)
-            if has_debug and has_release:
-                rel_type = "debug+release"
-            elif has_debug:
-                rel_type = "debug"
-            else:
-                rel_type = "release"
-
-            # Пытаемся получить прямую ссылку на конкретный запуск Actions (как в оригинальном боте)
-            action_url = "https://github.com/CarbonCommunity/Carbon/actions"
+            # Ссылка на последний Actions run
             try:
-                r_act = requests.get(f"https://api.github.com/repos/{repo}/actions/runs", headers=GITHUB_HEADERS, params={"per_page": 10}, timeout=10)
+                r_act = requests.get(
+                    f"https://api.github.com/repos/{repo}/actions/runs",
+                    headers=GITHUB_HEADERS,
+                    params={"per_page": 10},
+                    timeout=10
+                )
                 if r_act.status_code == 200:
                     for run in r_act.json().get("workflow_runs", []):
                         if run.get("name") == "Protocol Hooks Build":
-                            action_url = run.get("html_url")
+                            action_url = run.get("html_url", action_url)
                             break
             except Exception:
                 pass
 
-            return {
-                "id":         str(release["id"]),
-                "tag":        tag,
-                "protocol":   protocol,
-                "branch":     branch,
-                "rel_type":   rel_type,
-                "version":    info.get("Version", ""),
-                "commit":     info.get("Commit", {}).get("HashShort", ""),
-                "url":        release["html_url"],
-                "action_url": action_url,
-            }
+        except Exception as e:
+            log("!", f"GitHub metadata ({branch}) ошибка: {e}")
 
-        log("-", "Carbon: .info файлы не найдены в релизах")
-        return None
-    except Exception as e:
-        log("!", f"Carbon Hooks ошибка: {e}")
-        return None
+        return {
+            "fingerprint": fp,
+            "branch":      branch,
+            "protocol":    protocol,
+            "version":     version,
+            "commit":      commit_h,
+            "rel_type":    rel_type,
+            "url":         release_url,
+            "action_url":  action_url,
+        }
+
+    log("-", "Carbon Hooks: fingerprint не получен")
+    return None
+
 
 
 # ─── Embed-шаблоны ────────────────────────────────────────────────────────────
@@ -392,20 +418,20 @@ def main() -> None:
             log("=", f"Carbon без изменений ({new_ver})")
 
     # 5. Carbon Hooks
-    log("~", "Проверяю хуки Carbon (GitHub Releases)...")
+    log("~", "Проверяю хуки Carbon (carbonmod.gg fingerprint)...")
     hook = get_carbon_hooks_release()
     if hook:
-        new_id = hook["id"]
-        old_id = versions.get("carbon_hooks", "")
-        if old_id != new_id:
-            log("+", f"Carbon Hooks: {old_id} -> {new_id} (ветка: {hook['branch']})")
+        new_fp = hook["fingerprint"]
+        old_fp = versions.get("carbon_hooks", "")
+        if old_fp != new_fp:
+            log("+", f"Carbon Hooks [{hook['branch']}]: fingerprint изменился ({old_fp} -> {new_fp}), протокол: {hook['protocol']}")
             if send_embed(CHANNELS["hooks"], embed_hooks(hook)):
-                versions["carbon_hooks"] = new_id
+                versions["carbon_hooks"] = new_fp
                 updated = True
             else:
                 log("!", "Ошибка отправки в LOLKA, версия не сохранена")
         else:
-            log("=", f"Carbon Hooks без изменений (id: {new_id}, ветка: {hook['branch']})")
+            log("=", f"Carbon Hooks без изменений (branch: {hook['branch']}, protocol: {hook['protocol']})")
 
     # Сохраняем версии если были изменения
     if updated:
