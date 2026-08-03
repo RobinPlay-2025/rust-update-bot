@@ -31,13 +31,8 @@ jobs:
 
       - name: Run RustPulse
         env:
-          LOLKA_TOKEN:          ${{ secrets.LOLKA_TOKEN }}
-          CHANNEL_RUST_SERVER:  ${{ secrets.CHANNEL_RUST_SERVER }}
-          CHANNEL_RUST_CLIENT:  ${{ secrets.CHANNEL_RUST_CLIENT }}
-          CHANNEL_OXIDE:        ${{ secrets.CHANNEL_OXIDE }}
-          CHANNEL_CARBON:       ${{ secrets.CHANNEL_CARBON }}
-          CHANNEL_HOOKS:        ${{ secrets.CHANNEL_HOOKS }}
-          GITHUB_TOKEN:         ${{ secrets.GITHUB_TOKEN }}
+          LOLKA_TOKEN:   ${{ secrets.LOLKA_TOKEN }}
+          GITHUB_TOKEN:  ${{ secrets.GITHUB_TOKEN }}
         run: python bot.py
 
       - name: Commit updated versions

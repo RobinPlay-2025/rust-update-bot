@@ -11,13 +11,15 @@ from datetime import datetime, timezone
 LOLKA_TOKEN    = os.environ["LOLKA_TOKEN"]
 GITHUB_TOKEN   = os.environ.get("GITHUB_TOKEN", "")
 
-CHANNELS = {
-    "rust_server": os.environ["CHANNEL_RUST_SERVER"],
-    "rust_client": os.environ["CHANNEL_RUST_CLIENT"],
-    "oxide":       os.environ["CHANNEL_OXIDE"],
-    "carbon":      os.environ["CHANNEL_CARBON"],
-    "hooks":       os.environ["CHANNEL_HOOKS"],
-}
+# ─── Каналы из config.json (не секрет — ID каналов не являются чувствительными данными)
+_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
+try:
+    with open(_CONFIG_FILE, "r", encoding="utf-8") as _f:
+        _cfg = json.load(_f)
+    CHANNELS: dict = _cfg["channels"]
+except Exception as _e:
+    raise RuntimeError(f"Не удалось загрузить config.json: {_e}")
+
 
 # ─── HTTP-заголовки ───────────────────────────────────────────────────────────
 
