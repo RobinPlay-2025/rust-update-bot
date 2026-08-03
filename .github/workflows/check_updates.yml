@@ -2,9 +2,8 @@ name: RustPulse — Check Updates
 
 on:
   schedule:
-    # Запуск каждые 5 часов. GitHub Actions убивает процессы через 6 часов.
-    # concurrency автоматически убьет старый процесс при запуске нового.
-    - cron: '0 */5 * * *'
+    # Каждые 5 минут (максимальная частота для GitHub Actions)
+    - cron: '*/5 * * * *'
   # Ручной запуск для тестирования
   workflow_dispatch:
 
@@ -14,9 +13,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    concurrency:
-      group: rustpulse-bot
-      cancel-in-progress: true
+    timeout-minutes: 8
 
     steps:
       - name: Checkout repository
@@ -42,3 +39,11 @@ jobs:
           CHANNEL_HOOKS:        ${{ secrets.CHANNEL_HOOKS }}
           GITHUB_TOKEN:         ${{ secrets.GITHUB_TOKEN }}
         run: python bot.py
+
+      - name: Commit updated versions
+        run: |
+          git config --local user.email "rustpulse-bot@users.noreply.github.com"
+          git config --local user.name "RustPulse Bot"
+          git add last_versions.json
+          git diff --staged --quiet || git commit -m "chore: update versions [skip ci]"
+          git push

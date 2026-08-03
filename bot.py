@@ -3,11 +3,7 @@
 import os
 import json
 import requests
-import subprocess
-import asyncio
 from datetime import datetime, timezone
-import discord
-from discord.ext import tasks
 
 # ─── Конфигурация из переменных окружения ────────────────────────────────────
 
@@ -310,20 +306,7 @@ def embed_hooks(hook: dict) -> dict:
 
 # ─── Точка входа ─────────────────────────────────────────────────────────────
 
-def commit_and_push():
-    try:
-        subprocess.run(["git", "config", "--local", "user.email", "rustpulse-bot@users.noreply.github.com"], check=True)
-        subprocess.run(["git", "config", "--local", "user.name", "RustPulse Bot"], check=True)
-        subprocess.run(["git", "add", "last_versions.json"], check=True)
-        res = subprocess.run(["git", "diff", "--staged", "--quiet"])
-        if res.returncode != 0:
-            subprocess.run(["git", "commit", "-m", "chore: update versions [skip ci]"], check=True)
-            subprocess.run(["git", "push"], check=True)
-            log("v", "Изменения успешно отправлены в GitHub")
-    except Exception as e:
-        log("!", f"Ошибка при пуше в git: {e}")
-
-def check_all_updates() -> None:
+def main() -> None:
     versions = load_versions()
     updated  = False
 
@@ -428,34 +411,11 @@ def check_all_updates() -> None:
     if updated:
         save_versions(versions)
         log("v", "last_versions.json обновлён")
-        commit_and_push()
     else:
         log("v", "Новых обновлений нет")
 
     print(f"{'='*55}\n")
 
 
-# ─── Discord.py Client ────────────────────────────────────────────────────────
-
-discord.http.Route.BASE = LOLKA_BASE
-
-class RustPulseBot(discord.Client):
-    def __init__(self):
-        super().__init__(intents=discord.Intents.default())
-
-    async def setup_hook(self):
-        self.check_updates_task.start()
-
-    @tasks.loop(minutes=5)
-    async def check_updates_task(self):
-        await asyncio.to_thread(check_all_updates)
-
-    @check_updates_task.before_loop
-    async def before_check(self):
-        await self.wait_until_ready()
-        print(f"[!] Бот вошел как {self.user} и готов к проверке обновлений")
-
-
 if __name__ == "__main__":
-    bot = RustPulseBot()
-    bot.run(LOLKA_TOKEN)
+    main()
