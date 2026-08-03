@@ -58,10 +58,17 @@ def save_versions(versions: dict) -> None:
 
 def send_embed(channel_id: str, embed: dict) -> bool:
     url = f"{LOLKA_BASE}/channels/{channel_id}/messages"
-    r = requests.post(url, headers=LOLKA_HEADERS, json={"embeds": [embed]}, timeout=15)
-    if not r.ok:
-        print(f"  [ERROR] LOLKA API {r.status_code}: {r.text[:200]}")
-    return r.ok
+    payload = {"embeds": [embed]}
+    try:
+        r = requests.post(url, headers=LOLKA_HEADERS, json=payload, timeout=15)
+        if not r.ok:
+            print(f"  [ERROR] LOLKA API {r.status_code} | channel={channel_id}")
+            print(f"  [ERROR] Response: {r.text[:500]}")
+            print(f"  [ERROR] Payload size: {len(str(payload))} chars")
+        return r.ok
+    except Exception as e:
+        print(f"  [ERROR] send_embed exception: {e}")
+        return False
 
 def log(symbol: str, text: str) -> None:
     print(f"[{symbol}] {text}")
@@ -309,15 +316,18 @@ def embed_hooks(hook: dict) -> dict:
         {"name": "Скачать (Release)", "value": col_rel, "inline": False},
     ]
 
+    prot_display = hook["protocol"] if hook["protocol"] else "н/д"
+    type_display  = hook.get("rel_type", "debug+release")
+
     return {
         "title":       "Обновление хуков (Hook Update)",
         "url":         hook.get("action_url", "https://github.com/CarbonCommunity/Carbon/actions"),
         "color":       0x76B82A,
         "description": "**Доступно новое обновление хуков для протокола!**\nПерезапустите сервер с тем же протоколом для обновления.",
         "fields": [
-            {"name": "Протокол",   "value": hook["protocol"], "inline": True},
-            {"name": "Тип",        "value": "debug+release",  "inline": True},
-            {"name": "Ветка",      "value": hook["branch"],   "inline": True},
+            {"name": "Протокол",   "value": prot_display,   "inline": True},
+            {"name": "Тип",        "value": type_display,   "inline": True},
+            {"name": "Ветка",      "value": hook["branch"],  "inline": True},
             {"name": "Хуки Oxide", "value": f"[Rust.opj]({oxide_url})", "inline": False},
             *download_fields,
         ],
