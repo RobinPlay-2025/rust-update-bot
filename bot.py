@@ -231,6 +231,7 @@ def embed_rust_server(old: str, new: str) -> dict:
         "title":       "🖥️  Обновление Rust Dedicated Server",
         "color":       COLOR_SERVER,
         "description": "Вышло обновление серверной части Rust. Обновите сервер через `steamcmd`.",
+        "thumbnail":   {"url": "https://raw.githubusercontent.com/RobinPlay-2025/rust-update-bot/main/thumb_server.png"},
         "fields": [
             {"name": "Предыдущий BuildID", "value": f"`{old}`", "inline": True},
             {"name": "Новый BuildID",       "value": f"`{new}`", "inline": True},
@@ -245,6 +246,7 @@ def embed_rust_client(old: str, new: str) -> dict:
         "title":       "🎮  Обновление Rust Client",
         "color":       COLOR_CLIENT,
         "description": "Вышло обновление клиента Rust в Steam.",
+        "thumbnail":   {"url": "https://raw.githubusercontent.com/RobinPlay-2025/rust-update-bot/main/thumb_client.png"},
         "fields": [
             {"name": "Предыдущий BuildID", "value": f"`{old}`", "inline": True},
             {"name": "Новый BuildID",       "value": f"`{new}`", "inline": True},
@@ -261,6 +263,7 @@ def embed_oxide(old: str, release: dict) -> dict:
         "title":       "⚙️  Новый релиз Oxide / uMod",
         "color":       COLOR_OXIDE,
         "description": body if body else "",
+        "thumbnail":   {"url": "https://raw.githubusercontent.com/RobinPlay-2025/rust-update-bot/main/thumb_oxide.png"},
         "fields": [
             {"name": "Предыдущая версия", "value": f"`{old}`",     "inline": True},
             {"name": "Новая версия",       "value": f"`{new_ver}`", "inline": True},
@@ -276,6 +279,7 @@ def embed_carbon(old: str, release: dict) -> dict:
         "title":       "🔶  Новый релиз Carbon",
         "color":       COLOR_CARBON,
         "description": body if body else "",
+        "thumbnail":   {"url": "https://raw.githubusercontent.com/RobinPlay-2025/rust-update-bot/main/carbonvector_go.png"},
         "fields": [
             {"name": "Предыдущая версия", "value": f"`{old}`",     "inline": True},
             {"name": "Новая версия",       "value": f"`{new_ver}`", "inline": True},
