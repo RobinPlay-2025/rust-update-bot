@@ -356,8 +356,12 @@ def main() -> None:
     log("~", "Проверяю Rust Server (AppID 258550)...")
     build = get_steam_buildid(258550)
     if build:
-        old = versions.get("rust_server", "unknown")
-        if old != build:
+        old = versions.get("rust_server", "")
+        if not old:
+            log("=", f"Rust Server: первый запуск, запоминаю {build}")
+            versions["rust_server"] = build
+            updated = True
+        elif old != build:
             log("+", f"Rust Server: {old} -> {build}")
             if send_embed(CHANNELS["rust_server"], embed_rust_server(old, build)):
                 versions["rust_server"] = build
@@ -371,8 +375,12 @@ def main() -> None:
     log("~", "Проверяю Rust Client (AppID 252490)...")
     build = get_steam_buildid(252490)
     if build:
-        old = versions.get("rust_client", "unknown")
-        if old != build:
+        old = versions.get("rust_client", "")
+        if not old:
+            log("=", f"Rust Client: первый запуск, запоминаю {build}")
+            versions["rust_client"] = build
+            updated = True
+        elif old != build:
             log("+", f"Rust Client: {old} -> {build}")
             if send_embed(CHANNELS["rust_client"], embed_rust_client(old, build)):
                 versions["rust_client"] = build
@@ -387,8 +395,12 @@ def main() -> None:
     release = get_github_latest_release("oxidemod/Oxide.Rust")
     if release:
         new_ver = release["tag_name"]
-        old_ver = versions.get("oxide", "unknown")
-        if old_ver != new_ver:
+        old_ver = versions.get("oxide", "")
+        if not old_ver:
+            log("=", f"Oxide: первый запуск, запоминаю {new_ver}")
+            versions["oxide"] = new_ver
+            updated = True
+        elif old_ver != new_ver:
             log("+", f"Oxide: {old_ver} -> {new_ver}")
             if send_embed(CHANNELS["oxide"], embed_oxide(old_ver, release)):
                 versions["oxide"] = new_ver
@@ -416,11 +428,14 @@ def main() -> None:
                     pass
                 break
 
-        old_ver = versions.get("carbon", "unknown")
-        if old_ver != new_ver:
+        old_ver = versions.get("carbon", "")
+        release["tag_name"] = new_ver
+        if not old_ver:
+            log("=", f"Carbon: первый запуск, запоминаю {new_ver}")
+            versions["carbon"] = new_ver
+            updated = True
+        elif old_ver != new_ver:
             log("+", f"Carbon: {old_ver} -> {new_ver}")
-            # Подменяем tag_name, чтобы в embed_carbon тоже ушла красивая версия
-            release["tag_name"] = new_ver
             if send_embed(CHANNELS["carbon"], embed_carbon(old_ver, release)):
                 versions["carbon"] = new_ver
                 updated = True
