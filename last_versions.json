@@ -1,8 +1,8 @@
 {
-  "rust_server": "",
-  "rust_client": "",
-  "oxide": "",
-  "carbon": "",
-  "carbon_hooks": "",
-  "carbon_hooks_protocol": ""
+  "rust_server": "24253458",
+  "rust_client": "24457949",
+  "oxide": "2.0.7529",
+  "carbon": "2.0.253",
+  "carbon_hooks": "6e5d485c8360fce3",
+  "carbon_hooks_protocol": "2026.08.06.0"
 }
