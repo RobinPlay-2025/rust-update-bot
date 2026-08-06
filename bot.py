@@ -441,7 +441,14 @@ def main() -> None:
         fp_changed   = old_fp   != new_fp
         prot_changed = old_prot != new_prot and new_prot  # игнорируем пустой протокол
 
-        if fp_changed or prot_changed:
+        # Первый запуск: оба значения пустые — тихо запоминаем текущее состояние
+        if not old_fp and not old_prot:
+            log("=", f"Carbon Hooks: первый запуск, запоминаю текущее состояние (protocol: {new_prot})")
+            versions["carbon_hooks"]          = new_fp
+            versions["carbon_hooks_protocol"] = new_prot
+            updated = True
+
+        elif fp_changed or prot_changed:
             reason = []
             if prot_changed: reason.append(f"протокол {old_prot} -> {new_prot}")
             if fp_changed:   reason.append(f"fingerprint {old_fp} -> {new_fp}")
