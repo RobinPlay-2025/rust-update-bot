@@ -430,20 +430,30 @@ def main() -> None:
             log("=", f"Carbon без изменений ({new_ver})")
 
     # 5. Carbon Hooks
-    log("~", "Проверяю хуки Carbon (carbonmod.gg fingerprint)...")
+    log("~", "Проверяю хуки Carbon (carbonmod.gg fingerprint + protocol)...")
     hook = get_carbon_hooks_release()
     if hook:
-        new_fp = hook["fingerprint"]
-        old_fp = versions.get("carbon_hooks", "")
-        if old_fp != new_fp:
-            log("+", f"Carbon Hooks [{hook['branch']}]: fingerprint изменился ({old_fp} -> {new_fp}), протокол: {hook['protocol']}")
+        new_fp   = hook["fingerprint"]
+        new_prot = hook["protocol"]
+        old_fp   = versions.get("carbon_hooks", "")
+        old_prot = versions.get("carbon_hooks_protocol", "")
+
+        fp_changed   = old_fp   != new_fp
+        prot_changed = old_prot != new_prot and new_prot  # игнорируем пустой протокол
+
+        if fp_changed or prot_changed:
+            reason = []
+            if prot_changed: reason.append(f"протокол {old_prot} -> {new_prot}")
+            if fp_changed:   reason.append(f"fingerprint {old_fp} -> {new_fp}")
+            log("+", f"Carbon Hooks [{hook['branch']}]: {', '.join(reason)}")
             if send_embed(CHANNELS["hooks"], embed_hooks(hook)):
-                versions["carbon_hooks"] = new_fp
+                versions["carbon_hooks"]          = new_fp
+                versions["carbon_hooks_protocol"] = new_prot
                 updated = True
             else:
                 log("!", "Ошибка отправки в LOLKA, версия не сохранена")
         else:
-            log("=", f"Carbon Hooks без изменений (branch: {hook['branch']}, protocol: {hook['protocol']})")
+            log("=", f"Carbon Hooks без изменений (branch: {hook['branch']}, protocol: {new_prot})")
 
     # Сохраняем версии если были изменения
     if updated:
