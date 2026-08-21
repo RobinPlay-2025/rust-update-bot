@@ -2,7 +2,7 @@
   "rust_server": "24793074",
   "rust_client": "24840484",
   "oxide": "2.0.7598",
-  "carbon": "2.0.256",
+  "carbon": "production_build",
   "carbon_hooks": "6e5d485c8360fce3",
   "carbon_hooks_protocol": "2026.08.06.0"
 }
