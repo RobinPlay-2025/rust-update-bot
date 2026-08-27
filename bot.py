@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 # ─── Конфигурация из переменных окружения ────────────────────────────────────
 
-LOLKA_TOKEN    = os.environ["LOLKA_TOKEN"]
+LOLKA_TOKEN    = os.environ.get("LOLKA_TOKEN", "")
 GITHUB_TOKEN   = os.environ.get("GITHUB_TOKEN", "")
 
 # ─── Каналы из config.json (не секрет — ID каналов не являются чувствительными данными)
@@ -22,11 +22,6 @@ except Exception as _e:
 
 
 # ─── HTTP-заголовки ───────────────────────────────────────────────────────────
-
-LOLKA_HEADERS = {
-    "Authorization": f"Bot {LOLKA_TOKEN}",
-    "Content-Type": "application/json",
-}
 
 GITHUB_HEADERS: dict = {"Accept": "application/vnd.github.v3+json"}
 if GITHUB_TOKEN:
@@ -59,10 +54,18 @@ def save_versions(versions: dict) -> None:
         json.dump(versions, f, indent=2, ensure_ascii=False)
 
 def send_embed(channel_id: str, embed: dict) -> bool:
+    token = os.environ.get("LOLKA_TOKEN", LOLKA_TOKEN)
+    if not token:
+        print(f"  [ERROR] LOLKA_TOKEN не задан! Невозможно отправить сообщение в канал {channel_id}.")
+        return False
     url = f"{LOLKA_BASE}/channels/{channel_id}/messages"
     payload = {"embeds": [embed]}
+    headers = {
+        "Authorization": f"Bot {token}",
+        "Content-Type": "application/json",
+    }
     try:
-        r = requests.post(url, headers=LOLKA_HEADERS, json=payload, timeout=15)
+        r = requests.post(url, headers=headers, json=payload, timeout=15)
         if not r.ok:
             print(f"  [ERROR] LOLKA API {r.status_code} | channel={channel_id}")
             print(f"  [ERROR] Response: {r.text[:500]}")
@@ -133,40 +136,40 @@ def _compute_opj_fingerprint(branch: str) -> str | None:
         log("!", f"carbonmod.gg fingerprint ({branch}) ошибка: {e}")
         return None
 
-def get_carbon_hooks_release() -> dict | None:
-    """Detect Carbon hook updates using carbonmod.gg MSILHash fingerprint.
-    Protocol / version info come from the latest GitHub release .info file."""
-    for branch in ["staging", "public", "aux03"]:
-        fp = _compute_opj_fingerprint(branch)
-        if not fp:
-            continue
+HOOK_BRANCHES = ["public", "staging", "aux03"]
 
-        repo = "CarbonCommunity/Carbon"
-        protocol   = ""
-        version    = ""
-        commit_h   = ""
-        rel_type   = "debug+release"
-        release_url = f"https://github.com/{repo}/releases"
-        action_url  = f"https://github.com/{repo}/actions"
+def get_carbon_hook_info(branch: str) -> dict | None:
+    """Fetch fingerprint and metadata for a specific Carbon hooks branch.
+    Checks carbonmod.gg for OPJ fingerprint and GitHub for protocol/release info."""
+    fp = _compute_opj_fingerprint(branch)
+    if not fp:
+        return None
 
-        # Пытаемся получить протокол из GitHub release .info
-        try:
-            r = requests.get(
-                f"https://api.github.com/repos/{repo}/releases",
-                headers=GITHUB_HEADERS,
-                params={"per_page": 10},
-                timeout=20
-            )
-            r.raise_for_status()
+    repo = "CarbonCommunity/Carbon"
+    protocol    = ""
+    version     = ""
+    commit_h    = ""
+    rel_type    = "debug+release"
+    release_url = f"https://github.com/{repo}/releases"
+    action_url  = f"https://github.com/{repo}/actions"
+
+    # Пытаемся получить протокол из соответствующего GitHub release .info
+    try:
+        r = requests.get(
+            f"https://api.github.com/repos/{repo}/releases",
+            headers=GITHUB_HEADERS,
+            params={"per_page": 15},
+            timeout=20
+        )
+        if r.ok:
             releases = sorted(r.json(), key=lambda x: x.get("published_at") or "", reverse=True)
-
             for release in releases:
                 tag = release.get("tag_name", "").lower()
                 if branch == "staging" and "staging" not in tag:
                     continue
                 if branch == "aux03" and "aux03" not in tag:
                     continue
-                if branch == "public" and any(k in tag for k in ("staging", "aux03", "edge")):
+                if branch == "public" and any(k in tag for k in ("staging", "aux03", "edge", "preview")):
                     continue
 
                 assets = release.get("assets", [])
@@ -189,38 +192,51 @@ def get_carbon_hooks_release() -> dict | None:
                 release_url = release["html_url"]
                 break
 
-            # Ссылка на последний Actions run
-            try:
-                r_act = requests.get(
-                    f"https://api.github.com/repos/{repo}/actions/runs",
-                    headers=GITHUB_HEADERS,
-                    params={"per_page": 10},
-                    timeout=10
-                )
-                if r_act.status_code == 200:
-                    for run in r_act.json().get("workflow_runs", []):
-                        if run.get("name") == "Protocol Hooks Build":
-                            action_url = run.get("html_url", action_url)
-                            break
-            except Exception:
-                pass
+    except Exception as e:
+        log("!", f"GitHub metadata ({branch}) ошибка: {e}")
 
-        except Exception as e:
-            log("!", f"GitHub metadata ({branch}) ошибка: {e}")
+    # Ссылка на последний успешный Actions run воркфлоу Protocol Hooks Build
+    try:
+        r_act = requests.get(
+            f"https://api.github.com/repos/{repo}/actions/workflows/hook-build.yml/runs",
+            headers=GITHUB_HEADERS,
+            params={"per_page": 5},
+            timeout=10
+        )
+        if r_act.status_code == 200:
+            for run in r_act.json().get("workflow_runs", []):
+                if run.get("conclusion") == "success":
+                    action_url = run.get("html_url", action_url)
+                    break
+        else:
+            r_fallback = requests.get(
+                f"https://api.github.com/repos/{repo}/actions/runs",
+                headers=GITHUB_HEADERS,
+                params={"per_page": 10},
+                timeout=10
+            )
+            if r_fallback.status_code == 200:
+                for run in r_fallback.json().get("workflow_runs", []):
+                    if run.get("name") == "Protocol Hooks Build" and run.get("conclusion") == "success":
+                        action_url = run.get("html_url", action_url)
+                        break
+    except Exception:
+        pass
 
-        return {
-            "fingerprint": fp,
-            "branch":      branch,
-            "protocol":    protocol,
-            "version":     version,
-            "commit":      commit_h,
-            "rel_type":    rel_type,
-            "url":         release_url,
-            "action_url":  action_url,
-        }
+    return {
+        "fingerprint": fp,
+        "branch":      branch,
+        "protocol":    protocol,
+        "version":     version,
+        "commit":      commit_h,
+        "rel_type":    rel_type,
+        "url":         release_url,
+        "action_url":  action_url,
+    }
 
-    log("-", "Carbon Hooks: fingerprint не получен")
-    return None
+# Для совместимости со старыми импортами (по умолчанию возвращает public)
+def get_carbon_hooks_release(branch: str = "public") -> dict | None:
+    return get_carbon_hook_info(branch)
 
 
 
@@ -289,54 +305,64 @@ def embed_carbon(old: str, release: dict) -> dict:
     }
 
 def embed_hooks(hook: dict) -> dict:
-    branch_emoji = {"staging": "🧪", "aux03": "🔧", "public": "✅", "edge": "⚡"}.get(hook["branch"], "🪝")
+    branch = hook.get("branch", "public")
+    branch_info = {
+        "public":  {"emoji": "✅", "name": "Public (Релизная)"},
+        "staging": {"emoji": "🧪", "name": "Staging (Тестовая)"},
+        "aux03":   {"emoji": "🔧", "name": "Aux03 (Экспериментальная)"},
+        "edge":    {"emoji": "⚡", "name": "Edge"},
+    }.get(branch, {"emoji": "🪝", "name": branch.capitalize()})
+    
+    emoji = branch_info["emoji"]
+    branch_title = branch_info["name"]
 
     # Oxide Hooks URL
-    oxide_url = f"https://api.carbonmod.gg/oxide/{hook['branch']}.opj"
+    oxide_url = f"https://api.carbonmod.gg/oxide/{branch}.opj"
 
     # Ссылки на прямое скачивание .dll файлов
     comm_dll = "Carbon.Hooks.Community.dll"
     ox_dll   = "Carbon.Hooks.Oxide.dll"
-    prot     = hook["protocol"]
+    prot     = hook.get("protocol", "")
     
-    base_win_debug = f"https://cdn.carbonmod.gg/hooks/server/debug/{prot}/carbon/managed/hooks"
-    base_unx_debug = f"https://cdn.carbonmod.gg/hooks/server/debugunix/{prot}/carbon/managed/hooks"
-    base_win_rel   = f"https://cdn.carbonmod.gg/hooks/server/release/{prot}/carbon/managed/hooks"
-    base_unx_rel   = f"https://cdn.carbonmod.gg/hooks/server/releaseunix/{prot}/carbon/managed/hooks"
-    
-    col_debug = (
-        f"Windows:\n[{comm_dll}]({base_win_debug}/{comm_dll})\n[{ox_dll}]({base_win_debug}/{ox_dll})\n"
-        f"Unix:\n[{comm_dll}]({base_unx_debug}/{comm_dll})\n[{ox_dll}]({base_unx_debug}/{ox_dll})"
-    )
-    
-    col_rel = (
-        f"Windows:\n[{comm_dll}]({base_win_rel}/{comm_dll})\n[{ox_dll}]({base_win_rel}/{ox_dll})\n"
-        f"Unix:\n[{comm_dll}]({base_unx_rel}/{comm_dll})\n[{ox_dll}]({base_unx_rel}/{ox_dll})"
-    )
+    download_fields = []
+    if prot:
+        base_win_debug = f"https://cdn.carbonmod.gg/hooks/server/debug/{prot}/carbon/managed/hooks"
+        base_unx_debug = f"https://cdn.carbonmod.gg/hooks/server/debugunix/{prot}/carbon/managed/hooks"
+        base_win_rel   = f"https://cdn.carbonmod.gg/hooks/server/release/{prot}/carbon/managed/hooks"
+        base_unx_rel   = f"https://cdn.carbonmod.gg/hooks/server/releaseunix/{prot}/carbon/managed/hooks"
+        
+        col_debug = (
+            f"Windows:\n[{comm_dll}]({base_win_debug}/{comm_dll})\n[{ox_dll}]({base_win_debug}/{ox_dll})\n"
+            f"Unix:\n[{comm_dll}]({base_unx_debug}/{comm_dll})\n[{ox_dll}]({base_unx_debug}/{ox_dll})"
+        )
+        
+        col_rel = (
+            f"Windows:\n[{comm_dll}]({base_win_rel}/{comm_dll})\n[{ox_dll}]({base_win_rel}/{ox_dll})\n"
+            f"Unix:\n[{comm_dll}]({base_unx_rel}/{comm_dll})\n[{ox_dll}]({base_unx_rel}/{ox_dll})"
+        )
 
-    # Располагаем блоки скачивания друг под другом (inline=False), 
-    # чтобы они занимали всю ширину и текст 100% не переносился.
-    # Добавляем разделительную полосу после первого блока.
-    download_fields = [
-        {"name": "Скачать (Debug)",   "value": col_debug + "\n━━━━━━━━━━━━━━━━━━━", "inline": False},
-        {"name": "Скачать (Release)", "value": col_rel, "inline": False},
-    ]
+        download_fields = [
+            {"name": "Скачать (Debug)",   "value": col_debug + "\n━━━━━━━━━━━━━━━━━━━", "inline": False},
+            {"name": "Скачать (Release)", "value": col_rel, "inline": False},
+        ]
 
-    prot_display = hook["protocol"] if hook["protocol"] else "н/д"
+    prot_display = prot if prot else "н/д"
     type_display  = hook.get("rel_type", "debug+release")
 
+    fields = [
+        {"name": "Ветка",      "value": f"{emoji} `{branch}` ({branch_title})", "inline": True},
+        {"name": "Протокол",   "value": f"`{prot_display}`",                    "inline": True},
+        {"name": "Тип",        "value": type_display,                           "inline": True},
+        {"name": "Хуки Oxide", "value": f"[{branch}.opj]({oxide_url})",         "inline": False},
+        *download_fields,
+    ]
+
     return {
-        "title":       "Обновление хуков (Hook Update)",
+        "title":       f"{emoji} Обновление хуков Carbon — {branch.upper()}",
         "url":         hook.get("action_url", "https://github.com/CarbonCommunity/Carbon/actions"),
         "color":       0x76B82A,
-        "description": "**Доступно новое обновление хуков для протокола!**\nПерезапустите сервер с тем же протоколом для обновления.",
-        "fields": [
-            {"name": "Протокол",   "value": prot_display,   "inline": True},
-            {"name": "Тип",        "value": type_display,   "inline": True},
-            {"name": "Ветка",      "value": hook["branch"],  "inline": True},
-            {"name": "Хуки Oxide", "value": f"[Rust.opj]({oxide_url})", "inline": False},
-            *download_fields,
-        ],
+        "description": f"**Доступно новое обновление хуков для ветки `{branch}`!**\nПерезапустите сервер с тем же протоколом для обновления.",
+        "fields":      fields,
         "thumbnail":  {"url": "https://raw.githubusercontent.com/RobinPlay-2025/rust-update-bot/main/carbonvector_go.png"},
     }
 
@@ -448,38 +474,57 @@ def main() -> None:
         else:
             log("=", f"Carbon без изменений ({new_ver})")
 
-    # 5. Carbon Hooks
-    log("~", "Проверяю хуки Carbon (carbonmod.gg fingerprint + protocol)...")
-    hook = get_carbon_hooks_release()
-    if hook:
+    # 5. Carbon Hooks (проверка всех активных веток: public, staging, aux03)
+    log("~", "Проверяю хуки Carbon по веткам (public, staging, aux03)...")
+
+    # Миграция со старого формата carbon_hooks (если в файле хранилась одна строка)
+    raw_hooks = versions.get("carbon_hooks")
+    if not isinstance(raw_hooks, dict):
+        hooks_state: dict = {}
+        old_legacy_fp   = str(raw_hooks) if raw_hooks else ""
+        old_legacy_prot = versions.get("carbon_hooks_protocol", "")
+        if old_legacy_fp:
+            hooks_state["public"] = {
+                "fingerprint": old_legacy_fp,
+                "protocol":    old_legacy_prot
+            }
+        versions["carbon_hooks"] = hooks_state
+    else:
+        hooks_state = versions["carbon_hooks"]
+
+    for branch in HOOK_BRANCHES:
+        hook = get_carbon_hook_info(branch)
+        if not hook:
+            continue
+
         new_fp   = hook["fingerprint"]
         new_prot = hook["protocol"]
-        old_fp   = versions.get("carbon_hooks", "")
-        old_prot = versions.get("carbon_hooks_protocol", "")
 
-        fp_changed   = old_fp   != new_fp
-        prot_changed = old_prot != new_prot and new_prot  # игнорируем пустой протокол
+        branch_saved = hooks_state.get(branch, {})
+        old_fp   = branch_saved.get("fingerprint", "")
+        old_prot = branch_saved.get("protocol", "")
 
-        # Первый запуск: оба значения пустые — тихо запоминаем текущее состояние
-        if not old_fp and not old_prot:
-            log("=", f"Carbon Hooks: первый запуск, запоминаю текущее состояние (protocol: {new_prot})")
-            versions["carbon_hooks"]          = new_fp
-            versions["carbon_hooks_protocol"] = new_prot
+        fp_changed   = old_fp != new_fp
+        prot_changed = bool(old_prot and new_prot and old_prot != new_prot)
+
+        # Первый запуск для данной ветки — тихо запоминаем текущее состояние
+        if not old_fp:
+            log("=", f"Carbon Hooks [{branch}]: первый запуск, запоминаю состояние (fp: {new_fp}, prot: {new_prot or 'н/д'})")
+            hooks_state[branch] = {"fingerprint": new_fp, "protocol": new_prot}
             updated = True
-
         elif fp_changed or prot_changed:
-            reason = []
-            if prot_changed: reason.append(f"протокол {old_prot} -> {new_prot}")
-            if fp_changed:   reason.append(f"fingerprint {old_fp} -> {new_fp}")
-            log("+", f"Carbon Hooks [{hook['branch']}]: {', '.join(reason)}")
+            reasons = []
+            if prot_changed: reasons.append(f"протокол {old_prot} -> {new_prot}")
+            if fp_changed:   reasons.append(f"fingerprint {old_fp} -> {new_fp}")
+            log("+", f"Carbon Hooks [{branch}]: {', '.join(reasons)}")
+
             if send_embed(CHANNELS["hooks"], embed_hooks(hook)):
-                versions["carbon_hooks"]          = new_fp
-                versions["carbon_hooks_protocol"] = new_prot
+                hooks_state[branch] = {"fingerprint": new_fp, "protocol": new_prot}
                 updated = True
             else:
-                log("!", "Ошибка отправки в LOLKA, версия не сохранена")
+                log("!", f"Ошибка отправки в LOLKA для ветки {branch}, версия не сохранена")
         else:
-            log("=", f"Carbon Hooks без изменений (branch: {hook['branch']}, protocol: {new_prot})")
+            log("=", f"Carbon Hooks [{branch}] без изменений (protocol: {new_prot or 'н/д'})")
 
     # Сохраняем версии если были изменения
     if updated:
