@@ -9,8 +9,8 @@
       "protocol": "0.0.1.0-aux01"
     },
     "staging": {
-      "fingerprint": "6e5d485c8360fce3",
-      "protocol": "2026.09.03.0"
+      "fingerprint": "882c72cd7fdb41e1",
+      "protocol": "2026.10.01.0"
     },
     "aux03": {
       "fingerprint": "ed38bbd94d36d8c7",
