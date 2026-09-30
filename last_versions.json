@@ -6,7 +6,7 @@
   "carbon_hooks": {
     "public": {
       "fingerprint": "3dc6031ca15eb9c5",
-      "protocol": "0.0.1.0-aux01"
+      "protocol": "2026.10.01.0"
     },
     "staging": {
       "fingerprint": "882c72cd7fdb41e1",
