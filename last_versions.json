@@ -1,8 +1,8 @@
 {
-  "rust_server": "26139947",
-  "rust_client": "26140533",
-  "oxide": "2.0.7839",
-  "carbon": "2.0.263",
+  "rust_server": "26431843",
+  "rust_client": "26434844",
+  "oxide": "2.0.7888",
+  "carbon": "2.0.264",
   "carbon_hooks": {
     "public": {
       "fingerprint": "3dc6031ca15eb9c5",
